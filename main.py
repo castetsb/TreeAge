@@ -91,8 +91,7 @@ class TreeAge():
         
     def _findRadius(self):
         """
-        Find the maximum distance between slice center and slice border point.
-        This distance is considered as the slice radius.
+        Find the maximum radius of the slice.
         """
         #Find points on the border of the slice using
         kernel=np.ones((3,3),np.bool)
@@ -134,41 +133,43 @@ class TreeAge():
     
     def _radialStack(self):
         """
-        Make a vertical stack image of radial profil of the tree slice.
-        The profile is done every degree.
-        
-        self.radius must be known to use this function. Excute _findBdCercle
-        as a first step.
+        Make a vertical stack image of radial profiles of the tree slice.
         """
-        #Make a loop to get profil on each degree
-        i=0
         n0,p0=self.center
-        nbrProfil=1700
+        #Number of profiles to be extracted
+        nbrProfil=self.radius
+        #Prepare array to save profiles
         self.treeStack=np.zeros((nbrProfil,self.radius),np.uint8)
+        #Make a loop to attract radial profiles
+        i=0
         while i<nbrProfil:
+            #Angle of the radius
             deg=(360/nbrProfil)*i
-            
-            #profil extremity
+            #Profile extremity
             n1=int(n0+self.radius*math.sin(math.radians(deg)))
             p1=int(p0+self.radius*math.cos(math.radians(deg)))
-            #Get pixel on the radius
+            #Pixel on the radius
             n, p = np.linspace(n0, n1, self.radius),np.linspace(p0, p1, self.radius)
-            #Get value at each pixels
+            #Value of each pixels on the radius
             prof=self.img[n.astype(np.int), p.astype(np.int)]
-            
-            
-            #remove white pixels extend profil to maximum radius
+            #If the profile ends out of the slice. We trim the profile portion out of the
+            #slice and resize it to have same length as the maximum slice radius.
             if np.sum(prof>240)>0:
+                #Trim the profile portion out of the slice.
                 profEnd=np.argmax(prof>240)
-                
                 prof=prof[0:profEnd]
+                #Resize the profile to have same length as the maximum slice radius.
                 idx=np.linspace(0,profEnd-1,self.radius)
                 f=interpolate.interp1d(np.arange(0,prof.size,1),prof,kind="quadratic")
                 profInterp=f(idx)
+                #Save extracted profile
                 self.treeStack[i,:] = profInterp
             else:
+                #Save extracted profile
                 self.treeStack[i,:] =prof
             i+=1
+
+        #Print results
         if self.detailSteps==True:
             plt.subplot(1,2,1)
             plt.title("Tree slice")
@@ -180,26 +181,35 @@ class TreeAge():
 
     def _bestProfile(self):
         """
-        Find the most representative profil in treeStack. This will be use
-        for age calculation
-        self.treeStack must be calculated before using this function.
-        """
-        #Find the profile with smallest anthopy in treeStack
-        
+        Find the less noisy profil which will be use for analysis.
+        We will consider it is the profil with the smallest entropy.
+        """        
+        #Make a look to calculate entropy of each profiles
+        #Find maximum (for ploting) and minimum entropy
         minEntropy=stats.entropy(self.treeStack[0,:])
         minEntropyN=0
-        
+        maxEntropy=stats.entropy(self.treeStack[0,:])
+        maxEntropyN=0
         i=1
         while i<self.treeStack.shape[0]:
             entropy=stats.entropy(self.treeStack[i,:])
             if entropy<minEntropy:
                 minEntropyN=i
                 minEntropy=entropy
+            if entropy>maxEntropy:
+                maxEntropyN=i
+                maxEntropy=entropy
             i+=1
-        
+        #Save the best profile
         self.bestProfile=self.treeStack[minEntropyN,:]
+        
         if self.detailSteps==True:
-            print("The profile with minimum entropy is the at line {}/{}".format(minEntropyN,self.treeStack.shape[0]))
+            print("The profile with minimum entropy is the at the line {}/{}".format(minEntropyN,self.treeStack.shape[0]))
+            print("The profile with maximum entropy is the at the line {}/{}".format(maxEntropyN,self.treeStack.shape[0]))
+            plt.subplot(2,1,1)
+            plt.title("Worst radial profile")
+            plt.plot(self.treeStack[maxEntropyN,:])
+            plt.subplot(2,1,2)
             plt.title("Best radial profile")
             plt.plot(self.bestProfile)
             plt.show()
