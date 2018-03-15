@@ -10,7 +10,6 @@ from matplotlib import pyplot as plt
 import scipy.ndimage as ndimage
 import scipy.interpolate as interpolate
 import scipy.stats as stats
-
 from scipy.signal import butter, lfilter, freqz
 
 
@@ -24,16 +23,13 @@ def butter_bandpass(lowcut, highcut, fs, order=5):
     b, a = butter(order, [low, high], btype='band')
     return b, a
 
-
 def butter_bandpass_filter(data, lowcut, highcut, fs, order=5):
     b, a = butter_bandpass(lowcut, highcut, fs, order=order)
     y = lfilter(b, a, data)
     return y
-
-
-
 ###################################################################
 
+#Set DEMO to True to plot each steps of the analysis
 DEMO=True
 
 class TreeAge():
@@ -237,7 +233,7 @@ class TreeAge():
     
 
 #Test
-imgColor=plt.imread("tree3.JPG")
+imgColor=plt.imread("tree.JPG")
 imgGrey=(np.sum(imgColor,2)/3).astype(np.uint8)
 
 
