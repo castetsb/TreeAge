@@ -12,7 +12,6 @@ import scipy.interpolate as interpolate
 import scipy.stats as stats
 from scipy.signal import butter, lfilter, freqz
 
-
 ###################################################################
 #Pass filter
 #https://stackoverflow.com/questions/12093594/how-to-implement-band-pass-butterworth-filter-with-scipy-signal-butter
@@ -22,38 +21,39 @@ def butter_bandpass(lowcut, highcut, fs, order=5):
     high = highcut / nyq
     b, a = butter(order, [low, high], btype='band')
     return b, a
-
 def butter_bandpass_filter(data, lowcut, highcut, fs, order=5):
     b, a = butter_bandpass(lowcut, highcut, fs, order=order)
     y = lfilter(b, a, data)
     return y
 ###################################################################
 
-#Set DEMO to True to plot each steps of the analysis
-DEMO=True
-
 class TreeAge():
     """
-    Class used to calculate the age of a tree from a picture of its slice and
+    Class used to calculate the age of a tree from an image of its slice and
     the coordinate of the slice center on the image.
     """
-    def __init__(self,img,center):
+    def __init__(self,img,center,detailSteps=False):
         """
-        Create a TreeAge application
+        Create a TreeAge object.
         
         Parameters:
         ***********
         img:
-            Grey scale img of the tree slice.
-            The tree slice must be surrounded by white.
+            Grey scale ndimage of a tree slice.
         center:
-            tuple with tree slice center coordinate. (n,p)            
+            Tuple of slice center coordinate on the input image. (n,p) 
+        detailsSteps:
+            If True each steps of analysis are illustrated with plots.
         """
         #Attributes
         ###########
         ###########
         
-        #Imput
+        #options
+        ########
+        self.detailSteps=detailSteps
+        
+        #Input
         ######
         self.img=img.copy()
         self.center=center
@@ -66,9 +66,9 @@ class TreeAge():
         self.treeSlice=ndimage.find_objects(self.imgMask)[0]      
         #Trimmed image (used for display)
         self.treeImg=img[self.treeSlice]
-        #Radius of the slice
+        #Maximum radius of the slice
         self.radius=None      
-        #Unrolled slice image
+        #Array where are stacked radial profiles
         self.sliceStack=None
         #Most representive profile
         self.bestProfil=None
@@ -82,14 +82,12 @@ class TreeAge():
         ################
         self.analyse()
     
-    
     def analyse(self):
         self._findRadius()
-        self._unroll()
+        self._radialStack()
         self._bestProfile()
-        #Maybe added in the future
-        #self._filtering()
-        self._findAge()
+        self._filtering()
+        self._localMinimums()
         
     def _findRadius(self):
         """
@@ -104,7 +102,7 @@ class TreeAge():
         nbrPts=borderPts[0].size
         
         #ploting
-        if DEMO==True:
+        if self.detailSteps==True:
             plt.subplot(1,3,1)
             plt.title("Slice mask")
             plt.imshow(self.imgMask,cmap="gray")
@@ -131,10 +129,10 @@ class TreeAge():
         self.radius=radius
         
         #Print result
-        if DEMO==True:
+        if self.detailSteps==True:
             print("The slice radius length is: {}px".format(self.radius))
     
-    def _unroll(self):
+    def _radialStack(self):
         """
         Make a vertical stack image of radial profil of the tree slice.
         The profile is done every degree.
@@ -171,7 +169,7 @@ class TreeAge():
             else:
                 self.treeStack[i,:] =prof
             i+=1
-        if DEMO==True:
+        if self.detailSteps==True:
             plt.subplot(1,2,1)
             plt.title("Tree slice")
             plt.imshow(self.treeImg,cmap="gray")
@@ -200,13 +198,20 @@ class TreeAge():
             i+=1
         
         self.bestProfile=self.treeStack[minEntropyN,:]
-        if DEMO==True:
+        if self.detailSteps==True:
             print("The profile with minimum entropy is the at line {}/{}".format(minEntropyN,self.treeStack.shape[0]))
             plt.title("Best radial profile")
             plt.plot(self.bestProfile)
             plt.show()
-        
-    def _findAge(self):
+    
+    def _filtering(self):
+        """
+        Filter the best profile to remove noise.
+        """
+        pass
+    
+    
+    def _localMinimums(self):
         """
         """
         #Frequency band pass filtering
@@ -221,7 +226,7 @@ class TreeAge():
         localMinMask=(self.bestProfile==localMinFilter)*pickZone
         self.age=sum(localMinMask)
         
-        if DEMO==True:
+        if self.detailSteps==True:
             print("The tree is {} years old.".format(self.age))
             plt.subplot(2,1,1)
             plt.title("Best radial profile")
@@ -230,17 +235,12 @@ class TreeAge():
             plt.title("Local luminosity minima")
             plt.plot(localMinMask)
             plt.show()
-    
 
 #Test
 imgColor=plt.imread("tree.JPG")
+#Convert image to grey scale
 imgGrey=(np.sum(imgColor,2)/3).astype(np.uint8)
-
-
-
-#cv2.imread("tree2.JPG",cv2.IMREAD_GRAYSCALE)
-app=TreeAge(imgGrey,(1959,1928))
-#app.showCenterCroosProfil()
+app=TreeAge(imgGrey,(1959,1928),True)
 
 
 
