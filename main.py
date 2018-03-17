@@ -10,7 +10,6 @@ from matplotlib import pyplot as plt
 import scipy.ndimage as ndimage
 import scipy.interpolate as interpolate
 import scipy.stats as stats
-from scipy.signal import butter, lfilter, freqz
 
 ###################################################################
 #Pass filter
@@ -71,7 +70,7 @@ class TreeAge():
         #Array where are stacked radial profiles
         self.sliceStack=None
         #Most representive profile
-        self.bestProfil=None
+        self.bestProfile=None
         
         #Output
         #######
@@ -86,8 +85,7 @@ class TreeAge():
         self._findRadius()
         self._radialStack()
         self._bestProfile()
-        self._filtering()
-        self._localMinimums()
+        self._dftAnalysis()
         
     def _findRadius(self):
         """
@@ -183,7 +181,7 @@ class TreeAge():
         """
         Find the less noisy profil which will be use for analysis.
         We will consider it is the profil with the smallest entropy.
-        """        
+        """ 
         #Make a look to calculate entropy of each profiles
         #Find maximum (for ploting) and minimum entropy
         minEntropy=stats.entropy(self.treeStack[0,:])
@@ -214,43 +212,45 @@ class TreeAge():
             plt.plot(self.bestProfile)
             plt.show()
     
-    def _filtering(self):
+    def _dftAnalysis(self):
         """
-        Filter the best profile to remove noise.
+        Use Fourier DFT to find the domain harmonique which should be the age
+        of the tree.
         """
-        pass
-    
-    
-    def _localMinimums(self):
-        """
-        """
-        #Frequency band pass filtering
-        #prof=butter_bandpass_filter(self.mainProfil,10,100,self.mainProfil.size)
-        
-        #find local minima
-        localMinFilter=ndimage.filters.minimum_filter1d(self.bestProfile,30)
-        localMaxFilter=ndimage.filters.maximum_filter1d(self.bestProfile,30)
-        
-        pickZone=(localMaxFilter-localMinFilter)>20
-        
-        localMinMask=(self.bestProfile==localMinFilter)*pickZone
-        self.age=sum(localMinMask)
-        
+        prof=self.bestProfile
+        profDft=np.fft.fft(prof)
+        profDftAbs=np.absolute(profDft)
+        #We do not consider the 10 first harmonique
+        #The 10 first harmonique are responsible for global luminosity variation
+        #In simple word we are making the hypothesis that the tree is more than
+        #10 year old.
+        #With the DFT we can find age between 10 and maxRadius/2=879
+        self.age=np.argmax(profDftAbs[10:prof.size//2])+9
         if self.detailSteps==True:
-            print("The tree is {} years old.".format(self.age))
-            plt.subplot(2,1,1)
-            plt.title("Best radial profile")
-            plt.plot(self.bestProfile)
-            plt.subplot(2,1,2)
-            plt.title("Local luminosity minima")
-            plt.plot(localMinMask)
+            x=np.arange(0,prof.size,1)
+            print("The age of the tree is : {}".format(self.age))         
+            plt.subplot(4,1,1)
+            plt.title("Profile")
+            plt.plot(prof)
+            plt.subplot(4,1,2)
+            plt.title("DFT absolute 0-9")
+            plt.plot(profDftAbs[:10])
+            plt.subplot(4,1,3)
+            plt.title("DFT absolute 10-nyquist Frequency")
+            plt.plot(x[10:prof.size//2],profDftAbs[10:prof.size//2])
+            plt.subplot(4,1,4)
+            plt.title("DFT absolute close up 10-100")
+            plt.plot(x[10:101],profDftAbs[10:101])
             plt.show()
 
-#Test
+#Test       
 imgColor=plt.imread("tree.JPG")
 #Convert image to grey scale
 imgGrey=(np.sum(imgColor,2)/3).astype(np.uint8)
+#Create a TreeAge application
 app=TreeAge(imgGrey,(1959,1928),True)
+#Print result
+print("The age of the tree is : {}".format(app.age))
 
 
 
