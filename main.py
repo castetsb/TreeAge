@@ -11,21 +11,6 @@ import scipy.ndimage as ndimage
 import scipy.interpolate as interpolate
 import scipy.stats as stats
 
-###################################################################
-#Pass filter
-#https://stackoverflow.com/questions/12093594/how-to-implement-band-pass-butterworth-filter-with-scipy-signal-butter
-def butter_bandpass(lowcut, highcut, fs, order=5):
-    nyq = 0.5 * fs
-    low = lowcut / nyq
-    high = highcut / nyq
-    b, a = butter(order, [low, high], btype='band')
-    return b, a
-def butter_bandpass_filter(data, lowcut, highcut, fs, order=5):
-    b, a = butter_bandpass(lowcut, highcut, fs, order=order)
-    y = lfilter(b, a, data)
-    return y
-###################################################################
-
 class TreeAge():
     """
     Class used to calculate the age of a tree from an image of its slice and
